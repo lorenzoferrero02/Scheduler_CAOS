@@ -16,8 +16,9 @@ TaskHandle_t xWorkerHandle = NULL;
 
 
 TimelineTaskConfig_t tasks[] = {
-    {"Controller", vControllerTask, HARD_RT, 0, 10000, 0},
-    {"Worker", vWorkerTask, SOFT_RT, 0, 10000, 0}
+    {"Controller", vControllerTask, HARD_RT, 0, 500, 0},
+    {"Worker", vWorkerTask, SOFT_RT, 0, 1000, 0},
+    {"Worker2", vWorkerTask, SOFT_RT, 0, 10000, 0}
 };
 
 TimelineConfig_t cfg = {
@@ -26,6 +27,11 @@ TimelineConfig_t cfg = {
 };
 
 void vConfigureScheduler(TimelineConfig_t *cfg);
+int mcd_tasks(TimelineConfig_t *cfg);
+int mcd(int a, int b);
+int lcm_tasks(TimelineConfig_t *cfg);
+int lcm(int a, int b);
+int abs(int a);
 
 
 int main(void) {
@@ -51,7 +57,7 @@ int main(void) {
 	
 
     vConfigureScheduler(&cfg);
-    vTaskStartScheduler();
+    //vTaskStartScheduler();
 
     for (;;);
 }
@@ -60,10 +66,12 @@ int main(void) {
 void vControllerTask(void *pvParameters){
 
     for(;;){
+        /*
         vTaskSuspend(xWorkerHandle);
         vTaskDelay(1000); // Wait di un secondo
         vTaskResume(xWorkerHandle);
-        vTaskDelay(1000);
+        vTaskDelay(1000);*/
+        UART_printf("caiooo");
     }
     
     vTaskDelete(NULL); // termina il task dopo la prima esecuzione
@@ -83,15 +91,53 @@ void vWorkerTask(void *pvParameters){
     vTaskDelete(NULL); // termina il task dopo la prima esecuzione
 }
 
-
 void vConfigureScheduler(TimelineConfig_t *cfg) {
-    for(int i=0; i < cfg->num_tasks; i++){
-        if(cfg->tasks[i].type == "HARD_RT"){
-            
-        } else if(cfg->tasks[i].type == "SOFT_RT"){
+    int minor_cycle = mcd_tasks(cfg);
+    int major_cycle = lcm_tasks(cfg);
 
-        } else {
-            UART_printf("Error type task");
-        }
+    char temp[150];
+    snprintf(temp, sizeof(temp), "Minor cycle: %d\n", minor_cycle);
+    UART_printf(temp);
+
+    snprintf(temp, sizeof(temp), "Major cycle: %d\n", major_cycle);
+    UART_printf(temp);
+}
+
+// Funzioni MCD / LCM
+int mcd(int a, int b) {
+    while (b != 0) {
+        int temp = b;
+        b = a % b;
+        a = temp;
     }
+    return a;
+}
+
+int mcd_tasks(TimelineConfig_t *cfg) {
+    if (cfg->num_tasks == 0) return 0;
+    int result = cfg->tasks[0].end_time - cfg->tasks[0].start_time;
+    for (size_t i = 1; i < cfg->num_tasks; i++) {
+        result = mcd(result, cfg->tasks[i].end_time - cfg->tasks[i].start_time);
+    }
+    return result;
+}
+
+int lcm(int a, int b) {
+    return abs(a * b) / mcd(a, b);
+}
+
+int lcm_tasks(TimelineConfig_t *cfg) {
+    if (cfg->num_tasks == 0) return 0;
+    int result = cfg->tasks[0].end_time - cfg->tasks[0].start_time;
+    for (size_t i = 1; i < cfg->num_tasks; i++) {
+        result = lcm(result, cfg->tasks[i].end_time - cfg->tasks[i].start_time);
+    }
+    return result;
+}
+
+int abs(int a){
+    if(a < 0){
+        return a * (-1);
+    }
+    return a;
 }

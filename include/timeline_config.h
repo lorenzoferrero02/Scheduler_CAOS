@@ -16,6 +16,7 @@ typedef struct {
     uint32_t start_time;
     uint32_t end_time;
     uint32_t subframe_id;
+    uint32_t execution_time; // effective time of the task
 } TimelineTaskConfig_t;
 
 typedef struct {
