@@ -10,15 +10,17 @@
 
 void vControllerTask(void *pvParameters);
 void vWorkerTask(void *pvParameters);
+void vPeriodicTask(void *pvParameters);
 
 TaskHandle_t xControllerHandle = NULL;
 TaskHandle_t xWorkerHandle = NULL;
+TaskHandle_t xPeriodicHandle = NULL;
 
 
 TimelineTaskConfig_t tasks[] = {
     {"Controller", vControllerTask, HARD_RT, 0, 500, 0},
     {"Worker", vWorkerTask, SOFT_RT, 0, 1000, 0},
-    {"Worker2", vWorkerTask, SOFT_RT, 0, 10000, 0}
+    {"Worker2", vPeriodicTask, SOFT_RT, 0, 10000, 0}
 };
 
 TimelineConfig_t cfg = {
@@ -54,10 +56,19 @@ int main(void) {
         mainTASK_PRIORITY,
         &xWorkerHandle
     );
+
+    xTaskCreate(
+        vPeriodicTask,
+        "Periodic2",
+        configMINIMAL_STACK_SIZE * 4,
+        (void*)200,  
+        mainTASK_PRIORITY,
+        &xWorkerHandle
+    );
 	
 
     vConfigureScheduler(&cfg);
-    //vTaskStartScheduler();
+    vTaskStartScheduler();
 
     for (;;);
 }
@@ -94,13 +105,36 @@ void vWorkerTask(void *pvParameters){
 void vConfigureScheduler(TimelineConfig_t *cfg) {
     int minor_cycle = mcd_tasks(cfg);
     int major_cycle = lcm_tasks(cfg);
-
     char temp[150];
+
     snprintf(temp, sizeof(temp), "Minor cycle: %d\n", minor_cycle);
     UART_printf(temp);
 
     snprintf(temp, sizeof(temp), "Major cycle: %d\n", major_cycle);
     UART_printf(temp);
+
+    cfg->tasks[2].function(NULL);
+
+    for(;;){
+        
+    }
+}
+
+void vPeriodicTask(void *pvParameters){
+    int t = (int)pvParameters;
+    char temp[150];
+    TickType_t last = xTaskGetTickCount();
+
+    for(;;){
+        for (volatile int i = 0; i < 10000; i++);  // busy waiting generato apposta
+        
+		snprintf(temp, sizeof(temp), "Task 2 - Blink200 - [%lu] ms\n", last);
+        UART_printf(temp);
+        vTaskDelayUntil(&last, t);
+    }
+
+    
+    vTaskDelete(NULL); // termina il task dopo la prima esecuzione
 }
 
 // Funzioni MCD / LCM
